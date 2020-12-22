@@ -14,6 +14,8 @@ print(t.get('test1').trace_memory())
 for trace, size in t.get('test1').trace_memory():
     print(trace, '-', size)
 
+print(t.get('test1').to_dict())
+
 with yorkie.measure('test2', measure_memory=True):
     
     print('test2: ', sum( [ i for i in range(10**7) ] ))

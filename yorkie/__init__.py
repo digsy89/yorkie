@@ -53,9 +53,19 @@ class ElapsedTime(ContextDecorator):
 _time = Time()
 
 def _format(trace):
+    """Formatting trace"""
     filename, lineno = trace.split(':')
     return "  File \"{}\", line {}\n    {}".format(
             filename, lineno, linecache.getline(filename, int(lineno)).strip())
+
+def _format_size(size):
+    unit = ['B', 'KiB', 'MiB', 'GiB', 'TiB']
+    for u in unit:
+        if size < 1024//10:
+            break
+        size /= 1024
+    return str(round(size,2))+' '+u
+        
 
 class Measure(ContextDecorator):
 
@@ -78,7 +88,8 @@ class Measure(ContextDecorator):
         if self._measure_memory:
             self._snapshot = snapshot = tracemalloc.take_snapshot()
             tracemalloc.stop()
-            self._size = sum( [stat.size for stat in snapshot.statistics('lineno')] )
+            size = sum( [stat.size for stat in snapshot.statistics('lineno')] )
+            self._size = _format_size(size)
 
     def trace_memory(self):
         if not self._measure_memory:
@@ -93,7 +104,7 @@ class Measure(ContextDecorator):
                     tm[trace] += stat.size
                 prev = trace
         tm = sorted(tm.items(), key=lambda x:x[1], reverse=True)[:2]
-        result = [ (_format(trace), memory)for trace, memory in tm ] 
+        result = [ (_format(trace), _format_size(memory))for trace, memory in tm ] 
         return result
         
 
