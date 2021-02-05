@@ -6,7 +6,7 @@ from contextlib import ContextDecorator
 from collections import defaultdict
 
 
-class Time:
+class Meter:
 
     def __init__(self):
         self._elapsed = {}
@@ -20,37 +20,13 @@ class Time:
         self._elapsed[name] = Measure(**kwargs)
         return self._elapsed[name]
 
-    def todict(self, n_round=4):
+    def to_dict(self, n_round=4):
         return { k:v.to_dict(n_round) for k,v in self._elapsed.items() }
 
     def get(self, name):
         return self._elapsed.get(name)
 
-class ElapsedTime(ContextDecorator):
-
-    def __init__(self):
-        self._begin = None
-
-    def __enter__(self):
-        self._begin = time.time()
-        tracemalloc.start()
-        return self
-
-    def __exit__(self, *exc): 
-        self._end = time.time()
-        snapshot = tracemalloc.take_snapshot()
-        tracemalloc.stop()
-        #snapshot = snapshot.filter_traces((
-        #    tracemalloc.Filter(True, "test.py"),
-        #))
-        self._size = sum( [stat.size for stat in snapshot.statistics('lineno')] )
-        print(self._size)
-
-
-    def elapsed(self, n_round=4):
-        return round(self._end - self._begin, n_round)
-
-_time = Time()
+_time = Meter()
 
 def _format(trace):
     """Formatting trace"""
@@ -121,4 +97,4 @@ def measure(name=None, **kwargs):
     return _time.measure(name, **kwargs)
 
 def get_dict(n_round=4):
-    return _time.todict(n_round)
+    return _time.to_dict(n_round)
