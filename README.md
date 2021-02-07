@@ -1,22 +1,40 @@
 Yorkie
 ======
 
-A Yorkie will help your task
+A Yorkie will help your experiment
 
 ## Elapsed time
 
 Measure elapsed time in seconds
 
 ```python
->>> import yorkie
->>> meter = yorkie.Meter()
->>> with meter.measure("test01"):
-...   result = sum( [ i for i in range(10**7) ] )
-...   print("test01 result:", result)
-...
-test01 result: 49999995000000
->>> meter.get("test01").to_dict()
-{'elapsed': 0.6926}
+import time                    
+import yorkie                  
+
+# with context manager
+with yorkie.measure('test1'):  
+    time.sleep(0.123)          
+
+# with decorator
+@yorkie.measure                
+def foo(sec):                  
+    time.sleep(sec)            
+                               
+foo(0.456)                     
+foo(1.0)                       
+
+print(yorkie.get_dict())
+```
+stdout >>
+```python
+{
+    'test1': [
+        {'context': '/home/ubuntu/yorkie/examples/example.py:4 - "with yorkie.measure(\'test1\'):\n"', 'elapsed': 0.1234}], 
+    'foo': [
+        {'context': '/home/ubuntu/yorkie/examples/example.py:14 - "foo(0.456)\n"', 'elapsed': 0.4568},
+        {'context': '/home/ubuntu/yorkie/examples/example.py:15 - "foo(1.0)\n"', 'elapsed': 1.0015}
+    ]
+}
 ```
 
 ## Memory usage
