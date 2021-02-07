@@ -80,7 +80,7 @@ class Measure(ContextDecorator):
     def __exit__(self, *exc): 
         end = time.time()
 
-        frm = inspect.stack()[-1]
+        frm = inspect.stack()[2]
         context = "{}:{} - \"{}\"".format(frm.filename, frm.lineno, frm.code_context[0])
 
         self._logs.append({'context': context, 'elapsed': end-self._begin})
