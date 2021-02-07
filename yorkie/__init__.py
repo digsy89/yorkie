@@ -75,13 +75,23 @@ class Measure(ContextDecorator):
         self._begin = time.time()
         if self._measure_memory:
             tracemalloc.start(10)
+
+        for frm in inspect.stack():
+            if frm.function=='<module>':
+                break
+        #frm = stacks[2 if len(stacks)>2 else 1]
+        self._frm = frm
+        #self._context = "{}:{} - \"{}\"".format(frm.filename, frm.lineno, frm.code_context)
+
         return self
 
     def __exit__(self, *exc): 
         end = time.time()
 
-        frm = inspect.stack()[2]
-        context = "{}:{} - \"{}\"".format(frm.filename, frm.lineno, frm.code_context[0])
+        frm = self._frm
+        context = "{}:{}".format(frm.filename, frm.lineno)
+        if frm.code_context:
+            context += " - \"{}\"".format(frm.code_context[0])
 
         self._logs.append({'context': context, 'elapsed': end-self._begin})
  
