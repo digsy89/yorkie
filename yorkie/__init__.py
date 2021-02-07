@@ -2,31 +2,47 @@ import time
 import inspect
 import linecache
 import tracemalloc
+from copy import deepcopy
+
 from contextlib import ContextDecorator
 from collections import defaultdict
+from functools import wraps
 
+from typing import Callable, Text, Union
+
+Context = Union[Callable, Text]
 
 class Meter:
 
     def __init__(self):
-        self._elapsed = {}
+        self._measurements = {}
 
     def __repr__(self):
-        return ', '.join([ "{}: {}".format(k, v.elapsed()) for k,v in self._elapsed.items()])
+        measurements = ','.join(self._measurements.keys())
+        return "<{} measurements=[{}]>".format(self.__class__.__name__, measurements)
 
-    def measure(self, name, **kwargs):
-        if name in self._elapsed:
-            length = len(filter(lambda x:x.startswith(name), self._elpased.keys()))
-        self._elapsed[name] = Measure(**kwargs)
-        return self._elapsed[name]
+    def measure(self, context:Context, *args, **kwargs):
+        if callable(context):
+            @wraps(context)
+            def wrapper(*args, **kwargs):
+                with self.measure(context.__name__):
+                    result = context(*args, **kwargs)
+                return result
+            return wrapper
+
+        if context in self._measurements:
+            #length = len(filter(lambda x:x.startswith(name), self._measurements.keys()))
+            return self._measurements[context]
+        self._measurements[context] = Measure(*args, **kwargs)
+        return self._measurements[context]
 
     def to_dict(self, n_round=4):
-        return { k:v.to_dict(n_round) for k,v in self._elapsed.items() }
+        return { k:v.to_dict(n_round) for k,v in self._measurements.items() }
 
     def get(self, name):
-        return self._elapsed.get(name)
+        return self._measurements.get(name)
 
-_time = Meter()
+_meter = Meter()
 
 def _format(trace):
     """Formatting trace"""
@@ -50,6 +66,8 @@ class Measure(ContextDecorator):
         self._size = None
         self._measure_memory = measure_memory
 
+        self._logs = []
+
         frm = inspect.stack()[2]
         self._called_fname = frm[1]
 
@@ -60,12 +78,20 @@ class Measure(ContextDecorator):
         return self
 
     def __exit__(self, *exc): 
-        self._end = time.time()
+        end = time.time()
+
+        frm = inspect.stack()[-1]
+        context = "{}:{} - \"{}\"".format(frm.filename, frm.lineno, frm.code_context[0])
+
+        self._logs.append({'context': context, 'elapsed': end-self._begin})
+ 
         if self._measure_memory:
             self._snapshot = snapshot = tracemalloc.take_snapshot()
             tracemalloc.stop()
             size = sum( [stat.size for stat in snapshot.statistics('lineno')] )
             self._size = _format_size(size)
+            self._logs[-1]['memory'] = size
+            self._logs[-1]['memory_h'] = _format_size(size)
 
     def trace_memory(self):
         if not self._measure_memory:
@@ -83,18 +109,18 @@ class Measure(ContextDecorator):
         result = [ (_format(trace), _format_size(memory))for trace, memory in tm ] 
         return result
         
-
-    def elapsed(self, n_round=4):
-        return round(self._end - self._begin, n_round)
-
     def to_dict(self, n_round=4):
-        result = {'elapsed': self.elapsed(n_round)}
-        if self._size:
-            result['size'] = self._size
+        if len(self._logs) > 0:
+            result = deepcopy(self._logs)
+            for i in range(len(result)):
+                result[i]['elapsed'] = round(result[i]['elapsed'], n_round)
+        else:
+            result = None
         return result
 
-def measure(name=None, **kwargs):
-    return _time.measure(name, **kwargs)
+
+def measure(context:Context=None, *args, **kwargs):
+    return _meter.measure(context, *args, **kwargs)
 
 def get_dict(n_round=4):
-    return _time.to_dict(n_round)
+    return _meter.to_dict(n_round)
